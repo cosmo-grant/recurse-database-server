@@ -6,16 +6,22 @@ STORE: dict[str, str] = {}
 
 
 @dataclass(frozen=True)
-class Request:
+class SetRequest:
     key: str
-    value: str | None = None
+    value: str
+
+
+@dataclass(frozen=True)
+class GetRequest:
+    key: str
 
 
 def handle_request(
-    request: Request,
+    request: SetRequest | GetRequest,
     store: dict[str, str] = STORE,
 ) -> str:
-    if request.value is None:
+    assert isinstance(request, (SetRequest, GetRequest))
+    if isinstance(request, GetRequest):
         value = store[request.key]
         return f"HTTP/1.1 200 OK\r\nContent-Length: {len(value)}\r\n\r\n{value}"
     else:
@@ -23,15 +29,15 @@ def handle_request(
         return "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"
 
 
-def parse(raw: bytes) -> Request:
+def parse(raw: bytes) -> SetRequest | GetRequest:
     request_line = raw.split(b"\r\n")[0]
     _, uri, _ = request_line.split()
     path, _, query = uri.partition(b"?")
     key, _, value = query.partition(b"=")
     if path == b"/set":
-        return Request(key=key.decode("utf-8"), value=value.decode("utf-8"))
+        return SetRequest(key=key.decode("utf-8"), value=value.decode("utf-8"))
     else:
-        return Request(key=value.decode("utf-8"))
+        return GetRequest(key=value.decode("utf-8"))
 
 
 class Server:

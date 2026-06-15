@@ -2,27 +2,27 @@ from threading import Thread
 
 import requests
 
-from main import Request, Server, handle_request, parse
+from main import GetRequest, Server, SetRequest, handle_request, parse
 
 
 def test_parse_set_request():
-    assert parse(b"POST /set?somekey=somevalue HTTP/1.1\r\n\r\n") == Request("somekey", "somevalue")
+    assert parse(b"POST /set?somekey=somevalue HTTP/1.1\r\n\r\n") == SetRequest("somekey", "somevalue")
 
 
 def test_parse_get_request():
-    assert parse(b"GET /get?key=somekey HTTP/1.1\r\n\r\n") == Request("somekey", None)
+    assert parse(b"GET /get?key=somekey HTTP/1.1\r\n\r\n") == GetRequest("somekey")
 
 
 def test_handle_set_request():
     store = {}
-    response = handle_request(Request("somekey", "somevalue"), store=store)
+    response = handle_request(SetRequest("somekey", "somevalue"), store=store)
     assert response == "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"
     assert store["somekey"] == "somevalue"
 
 
 def test_handle_get_request():
     store = {"somekey": "somevalue"}
-    response = handle_request(Request("somekey", None), store=store)
+    response = handle_request(GetRequest("somekey"), store=store)
     assert response == "HTTP/1.1 200 OK\r\nContent-Length: 9\r\n\r\nsomevalue"
 
 
