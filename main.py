@@ -70,8 +70,8 @@ def parse(raw: bytes) -> SetRequest | GetRequest:
 
 
 class Server:
-    def __init__(self, store: Store | None = None):
-        self._sock = socket.create_server(("localhost", 4000))
+    def __init__(self, host: str, port: int, store: Store | None = None):
+        self._sock = socket.create_server((host, port))
         self._sock.settimeout(0.1)
         self._event = Event()
         self._store = store or Store()
@@ -99,9 +99,17 @@ class Server:
     def stop(self):
         self._event.set()
 
+    def get_port(self) -> int:
+        """
+        Return the port that the server's underlying socket is listening on.
+
+        This is useful if you initialized with port=0, e.g. when testing, to find out which port the kernel picked for you.
+        """
+        return self._sock.getsockname()[1]
+
 
 def main():
-    server = Server()
+    server = Server("localhost", 4000)
     try:
         server.start()
     finally:

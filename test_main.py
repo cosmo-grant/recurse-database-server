@@ -5,6 +5,12 @@ import requests
 from main import GetRequest, Response, Server, SetRequest, Store, handle_request, parse
 
 
+def test_store():
+    store = Store()
+    store.set("k", "v")
+    assert store.get("k") == "v"
+
+
 def test_parse_set_request():
     assert parse(b"POST /set?somekey=somevalue HTTP/1.1\r\n\r\n") == SetRequest("somekey", "somevalue")
 
@@ -27,12 +33,13 @@ def test_handle_get_request():
 
 def test_e2e_get_then_set():
     store = Store()
-    server = Server(store)
+    server = Server("localhost", 0, store)
+    port = server.get_port()
     thread = Thread(target=server.start)
     thread.start()
-    response = requests.post("http://localhost:4000/set", params={"somekey": "somevalue"})
+    response = requests.post(f"http://localhost:{port}/set", params={"somekey": "somevalue"})
     assert response.status_code == 200
-    response = requests.get("http://localhost:4000/get", params={"key": "somekey"})
+    response = requests.get(f"http://localhost:{port}/get", params={"key": "somekey"})
     assert response.text == "somevalue"
     assert store == Store({"somekey": "somevalue"})
     server.stop()
