@@ -1,5 +1,6 @@
 import socket
 from dataclasses import dataclass
+from threading import Event
 
 STORE: dict[str, str] = {}
 
@@ -33,20 +34,42 @@ def parse(raw: bytes) -> Request:
         return Request(key=value.decode("utf-8"))
 
 
-def main():
-    server = socket.create_server(("localhost", 4000))
-    while True:
-        conn, _ = server.accept()
-        raw = b""
-        while data := conn.recv(128):
-            raw += data
-            # I assume all requests are body-free, so end of message is end of headers.
-            if raw.endswith(b"\r\n\r\n"):
-                break
+class Server:
+    def __init__(self):
+        self._sock = socket.create_server(("localhost", 4000))
+        self._sock.settimeout(0.1)
+        self._event = Event()
 
-        request = parse(raw)
-        response = handle_request(request)
-        conn.sendall(response.encode("utf-8"))
+    def start(self):
+        while not self._event.is_set():
+            try:
+                conn, _ = self._sock.accept()
+            except TimeoutError:
+                pass
+            else:
+                raw = b""
+                while data := conn.recv(128):
+                    raw += data
+                    # I assume all requests are body-free, so end of message is end of headers.
+                    if raw.endswith(b"\r\n\r\n"):
+                        break
+
+                request = parse(raw)
+                response = handle_request(request)
+                conn.sendall(response.encode("utf-8"))
+
+        self._sock.close()
+
+    def stop(self):
+        self._event.set()
+
+
+def main():
+    server = Server()
+    try:
+        server.start()
+    finally:
+        server.stop()
 
 
 if __name__ == "__main__":
