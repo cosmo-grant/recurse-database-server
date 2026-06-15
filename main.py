@@ -2,7 +2,16 @@ import socket
 from dataclasses import dataclass
 from threading import Event
 
-STORE: dict[str, str] = {}
+
+class Store:
+    def __init__(self, data: dict[str, str] | None = None):
+        self._data = {**data} if data is not None else {}
+
+    def get(self, key: str) -> str:
+        return self._data[key]
+
+    def set(self, key: str, value: str) -> None:
+        self._data[key] = value
 
 
 @dataclass(frozen=True)
@@ -32,14 +41,14 @@ class Response:
 
 def handle_request(
     request: SetRequest | GetRequest,
-    store: dict[str, str] = STORE,
+    store: Store,
 ) -> Response:
     assert isinstance(request, (SetRequest, GetRequest))
     if isinstance(request, GetRequest):
-        value = store[request.key]
+        value = store.get(request.key)
         return Response(200, "OK", {}, value.encode("utf-8"))
     else:
-        store[request.key] = request.value
+        store.set(request.key, request.value)
         return Response(200, "OK", {}, b"")
 
 
@@ -55,10 +64,11 @@ def parse(raw: bytes) -> SetRequest | GetRequest:
 
 
 class Server:
-    def __init__(self):
+    def __init__(self, store: Store | None = None):
         self._sock = socket.create_server(("localhost", 4000))
         self._sock.settimeout(0.1)
         self._event = Event()
+        self._store = store or Store()
 
     def start(self):
         while not self._event.is_set():
@@ -75,7 +85,7 @@ class Server:
                         break
 
                 request = parse(raw)
-                response = handle_request(request)
+                response = handle_request(request, self._store)
                 conn.sendall(response.serialize())
 
         self._sock.close()

@@ -2,7 +2,7 @@ from threading import Thread
 
 import requests
 
-from main import GetRequest, Response, Server, SetRequest, handle_request, parse
+from main import GetRequest, Response, Server, SetRequest, Store, handle_request, parse
 
 
 def test_parse_set_request():
@@ -14,20 +14,20 @@ def test_parse_get_request():
 
 
 def test_handle_set_request():
-    store = {}
-    response = handle_request(SetRequest("somekey", "somevalue"), store=store)
+    store = Store()
+    response = handle_request(SetRequest("somekey", "somevalue"), store)
     assert response == Response(200, "OK", {}, b"")
-    assert store["somekey"] == "somevalue"
+    assert store.get("somekey") == "somevalue"
 
 
 def test_handle_get_request():
-    store = {"somekey": "somevalue"}
-    response = handle_request(GetRequest("somekey"), store=store)
+    response = handle_request(GetRequest("somekey"), Store({"somekey": "somevalue"}))
     assert response == Response(200, "OK", {}, b"somevalue")
 
 
 def test_e2e_get_then_set():
-    server = Server()
+    store = Store()
+    server = Server(store)
     thread = Thread(target=server.start)
     thread.start()
     response = requests.post("http://localhost:4000/set", params={"somekey": "somevalue"})
