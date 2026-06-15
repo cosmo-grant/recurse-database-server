@@ -16,17 +16,31 @@ class GetRequest:
     key: str
 
 
+@dataclass(frozen=True)
+class Response:
+    status_code: int
+    status_message: str
+    headers: dict[str, str]
+    body: bytes
+
+    def serialize(self) -> bytes:
+        self.headers["Content-Length"] = str(len(self.body))
+        status_line = f"HTTP/1.1 {self.status_code} {self.status_message}\r\n"
+        headers_lines = "".join(f"{key}: {value}\r\n" for key, value in self.headers.items())
+        return (status_line + headers_lines + "\r\n").encode("utf-8") + self.body
+
+
 def handle_request(
     request: SetRequest | GetRequest,
     store: dict[str, str] = STORE,
-) -> str:
+) -> Response:
     assert isinstance(request, (SetRequest, GetRequest))
     if isinstance(request, GetRequest):
         value = store[request.key]
-        return f"HTTP/1.1 200 OK\r\nContent-Length: {len(value)}\r\n\r\n{value}"
+        return Response(200, "OK", {}, value.encode("utf-8"))
     else:
         store[request.key] = request.value
-        return "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"
+        return Response(200, "OK", {}, b"")
 
 
 def parse(raw: bytes) -> SetRequest | GetRequest:
@@ -62,7 +76,7 @@ class Server:
 
                 request = parse(raw)
                 response = handle_request(request)
-                conn.sendall(response.encode("utf-8"))
+                conn.sendall(response.serialize())
 
         self._sock.close()
 
