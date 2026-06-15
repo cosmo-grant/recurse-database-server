@@ -7,6 +7,12 @@ class Store:
     def __init__(self, data: dict[str, str] | None = None):
         self._data = {**data} if data is not None else {}
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Store):
+            return False
+
+        return self._data == other._data
+
     def get(self, key: str) -> str:
         return self._data[key]
 
@@ -33,7 +39,7 @@ class Response:
     body: bytes
 
     def serialize(self) -> bytes:
-        self.headers["Content-Length"] = str(len(self.body))
+        self.headers["Content-Length"] = str(len(self.body))  # silently override if provided
         status_line = f"HTTP/1.1 {self.status_code} {self.status_message}\r\n"
         headers_lines = "".join(f"{key}: {value}\r\n" for key, value in self.headers.items())
         return (status_line + headers_lines + "\r\n").encode("utf-8") + self.body

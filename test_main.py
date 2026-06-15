@@ -17,7 +17,7 @@ def test_handle_set_request():
     store = Store()
     response = handle_request(SetRequest("somekey", "somevalue"), store)
     assert response == Response(200, "OK", {}, b"")
-    assert store.get("somekey") == "somevalue"
+    assert store == Store({"somekey": "somevalue"})
 
 
 def test_handle_get_request():
@@ -34,5 +34,6 @@ def test_e2e_get_then_set():
     assert response.status_code == 200
     response = requests.get("http://localhost:4000/get", params={"key": "somekey"})
     assert response.text == "somevalue"
+    assert store == Store({"somekey": "somevalue"})
     server.stop()
     thread.join()
