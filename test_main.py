@@ -51,6 +51,10 @@ def test_make_response_with_headers_and_body():
     )
 
 
+def test_serialize():
+    assert Response(200, "OK", {"Content-Length": "6"}, b"foobar").serialize() == b"HTTP/1.1 200 OK\r\nContent-Length: 6\r\n\r\nfoobar"
+
+
 def test_store():
     store = Store()
     store.set("k", "v")
