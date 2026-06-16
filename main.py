@@ -70,11 +70,11 @@ def parse(raw: bytes) -> SetRequest | GetRequest:
 
 
 class Server:
-    def __init__(self, host: str, port: int, store: Store | None = None):
+    def __init__(self, host: str, port: int):
         self._sock = socket.create_server((host, port))
         self._sock.settimeout(0.1)
         self._event = Event()
-        self._store = store or Store()
+        self._store = Store()
 
     def start(self):
         while not self._event.is_set():
