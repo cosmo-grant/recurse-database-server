@@ -44,3 +44,18 @@ def test_e2e_get_then_set():
     assert store == Store({"somekey": "somevalue"})
     server.stop()
     thread.join()
+
+
+def test_body_is_ignored():
+    server = Server("localhost", 0)
+    port = server.get_port()
+    thread = Thread(target=server.start)
+    thread.start()
+    response = requests.post(
+        f"http://localhost:{port}/set",
+        data="somebody",
+        params={"key": "somekey", "value": "somevalue"},
+    )
+    assert response.status_code == 200
+    server.stop()
+    thread.join()

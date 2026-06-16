@@ -86,8 +86,8 @@ class Server:
                 raw = b""
                 while data := conn.recv(128):
                     raw += data
-                    # I assume all requests are body-free, so end of message is end of headers.
-                    if raw.endswith(b"\r\n\r\n"):
+                    # I take end of headers as end of message, ignoring anything that comes later.
+                    if b"\r\n\r\n" in raw:
                         break
 
                 request = parse(raw)
