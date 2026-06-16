@@ -82,15 +82,17 @@ def handle_request(
 
 
 def parse(raw: bytes) -> SetRequest | GetRequest:
+    # I expect either GET /get?key=somekey or POST /set?somekey=somevalue.
+    # Behaviour is undefined for any other requests.
     decoded = raw.decode("utf-8")
     request_line = decoded.split("\r\n")[0]
     _, uri, _ = request_line.split()
     path, _, query = uri.partition("?")
-    key, _, value = query.partition("=")
+    key, _, value = query.partition("=")  # TODO: cope with url encoding
     if path == "/set":
         return SetRequest(key=key, value=value)
     else:
-        return GetRequest(key=value)
+        return GetRequest(key=value)  # sic!
 
 
 class Server:
@@ -101,6 +103,8 @@ class Server:
         self._store = Store()
 
     def start(self):
+        # The event checking and accept timeout is to allow tests to exit the loop.
+        # A bit wasteful though.
         while not self._event.is_set():
             try:
                 conn, _ = self._sock.accept()
@@ -118,6 +122,7 @@ class Server:
                 response = handle_request(request, self._store)
                 conn.sendall(response.serialize())
 
+        # Should I shutdown first? I'm not sure of best practice.
         self._sock.close()
 
     def stop(self):
