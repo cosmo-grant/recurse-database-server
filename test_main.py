@@ -33,7 +33,7 @@ def test_parse_get_request():
 def test_handle_set_request():
     store = Store()
     response = handle_request(SetRequest("somekey", "somevalue"), store)
-    assert response == Response(200, "OK", {}, b"")
+    assert response == Response(201, "Created", {}, b"")
     assert store == Store({"somekey": "somevalue"})
 
 
@@ -44,10 +44,11 @@ def test_handle_get_request():
 
 def test_e2e_get_then_set(server):
     port = server.get_port()
-    response = requests.post(f"http://localhost:{port}/set", params={"somekey": "somevalue"})
-    assert response.status_code == 200
-    response = requests.get(f"http://localhost:{port}/get", params={"key": "somekey"})
-    assert response.text == "somevalue"
+    post_response = requests.post(f"http://localhost:{port}/set", params={"somekey": "somevalue"})
+    assert post_response.status_code == 201
+    get_response = requests.get(f"http://localhost:{port}/get", params={"key": "somekey"})
+    assert get_response.status_code == 200
+    assert get_response.text == "somevalue"
 
 
 def test_body_is_ignored(server):
@@ -57,4 +58,4 @@ def test_body_is_ignored(server):
         data="somebody",
         params={"key": "somekey", "value": "somevalue"},
     )
-    assert response.status_code == 200
+    assert response.status_code == 201

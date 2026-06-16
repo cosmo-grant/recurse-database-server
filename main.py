@@ -55,7 +55,7 @@ def handle_request(
         return Response(200, "OK", {}, value.encode("utf-8"))
     else:
         store.set(request.key, request.value)
-        return Response(200, "OK", {}, b"")
+        return Response(201, "Created", {}, b"")
 
 
 def parse(raw: bytes) -> SetRequest | GetRequest:
