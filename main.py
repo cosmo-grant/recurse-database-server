@@ -39,10 +39,32 @@ class Response:
     body: bytes
 
     def serialize(self) -> bytes:
-        self.headers["Content-Length"] = str(len(self.body))  # silently override if provided
         status_line = f"HTTP/1.1 {self.status_code} {self.status_message}\r\n"
         headers_lines = "".join(f"{key}: {value}\r\n" for key, value in self.headers.items())
         return (status_line + headers_lines + "\r\n").encode("utf-8") + self.body
+
+
+def make_response(
+    status_code: int,
+    status_message: str,
+    headers: dict[str, str] | None = None,
+    body: str | bytes = b"",
+) -> Response:
+    """
+    Construct an HTTP/1.1 response from the given ingredients.
+
+    The ingredients should have all the endpoint-specific details.
+    This function manages the general HTTP details (e.g content-length header) and type conversions on top.
+    """
+    headers = headers or {}
+
+    if isinstance(body, str):
+        body = body.encode("utf-8")
+
+    # For HTTP/1.1, "Content-Length" (or "Transfer-Encoding: chunked") is required.
+    headers["Content-Length"] = str(len(body))
+
+    return Response(status_code, status_message, headers, body)
 
 
 def handle_request(
@@ -52,10 +74,10 @@ def handle_request(
     assert isinstance(request, (SetRequest, GetRequest))
     if isinstance(request, GetRequest):
         value = store.get(request.key)
-        return Response(200, "OK", {}, value.encode("utf-8"))
+        return make_response(200, "OK", body=value.encode("utf-8"))
     else:
         store.set(request.key, request.value)
-        return Response(201, "Created", {}, b"")
+        return make_response(201, "Created")
 
 
 def parse(raw: bytes) -> SetRequest | GetRequest:

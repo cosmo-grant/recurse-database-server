@@ -3,7 +3,7 @@ from threading import Thread
 import requests
 from pytest import fixture
 
-from main import GetRequest, Response, Server, SetRequest, Store, handle_request, parse
+from main import GetRequest, Response, Server, SetRequest, Store, handle_request, make_response, parse
 
 
 @fixture
@@ -14,6 +14,41 @@ def server():
     yield server
     server.stop()
     thread.join()
+
+
+def test_make_response():
+    assert make_response(200, "OK") == Response(200, "OK", {"Content-Length": "0"}, b"")
+
+
+def test_make_response_with_header():
+    assert make_response(
+        200,
+        "OK",
+        headers={"Host": "localhost"},
+    ) == Response(
+        200,
+        "OK",
+        {"Host": "localhost", "Content-Length": "0"},
+        b"",
+    )
+
+
+def test_make_response_with_body():
+    assert make_response(200, "OK", body=b"foobar") == Response(200, "OK", {"Content-Length": "6"}, b"foobar")
+
+
+def test_make_response_with_headers_and_body():
+    assert make_response(
+        200,
+        "OK",
+        headers={"Host": "localhost"},
+        body=b"foobar",
+    ) == Response(
+        200,
+        "OK",
+        {"Host": "localhost", "Content-Length": "6"},
+        b"foobar",
+    )
 
 
 def test_store():
@@ -33,13 +68,13 @@ def test_parse_get_request():
 def test_handle_set_request():
     store = Store()
     response = handle_request(SetRequest("somekey", "somevalue"), store)
-    assert response == Response(201, "Created", {}, b"")
+    assert response == make_response(201, "Created")
     assert store == Store({"somekey": "somevalue"})
 
 
 def test_handle_get_request():
     response = handle_request(GetRequest("somekey"), Store({"somekey": "somevalue"}))
-    assert response == Response(200, "OK", {}, b"somevalue")
+    assert response == make_response(200, "OK", body="somevalue")
 
 
 def test_e2e_get_then_set(server):
