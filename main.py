@@ -13,8 +13,8 @@ class Store:
 
         return self._data == other._data
 
-    def get(self, key: str) -> str:
-        return self._data[key]
+    def get(self, key: str) -> str | None:
+        return self._data.get(key)
 
     def set(self, key: str, value: str) -> None:
         self._data[key] = value
@@ -74,7 +74,8 @@ def handle_request(
     assert isinstance(request, (SetRequest, GetRequest))
     if isinstance(request, GetRequest):
         value = store.get(request.key)
-        return make_response(200, "OK", body=value.encode("utf-8"))
+        response = make_response(404, "Not Found") if value is None else make_response(200, "OK", body=value)
+        return response
     else:
         store.set(request.key, request.value)
         return make_response(201, "Created")

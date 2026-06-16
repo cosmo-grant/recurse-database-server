@@ -81,6 +81,11 @@ def test_handle_get_request():
     assert response == make_response(200, "OK", body="somevalue")
 
 
+def test_handle_get_request_not_found():
+    response = handle_request(GetRequest("nosuchkey"), store=Store())
+    assert response == make_response(404, "Not Found")
+
+
 def test_e2e_get_then_set(server):
     port = server.get_port()
     post_response = requests.post(f"http://localhost:{port}/set", params={"somekey": "somevalue"})
