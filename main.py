@@ -82,14 +82,15 @@ def handle_request(
 
 
 def parse(raw: bytes) -> SetRequest | GetRequest:
-    request_line = raw.split(b"\r\n")[0]
+    decoded = raw.decode("utf-8")
+    request_line = decoded.split("\r\n")[0]
     _, uri, _ = request_line.split()
-    path, _, query = uri.partition(b"?")
-    key, _, value = query.partition(b"=")
-    if path == b"/set":
-        return SetRequest(key=key.decode("utf-8"), value=value.decode("utf-8"))
+    path, _, query = uri.partition("?")
+    key, _, value = query.partition("=")
+    if path == "/set":
+        return SetRequest(key=key, value=value)
     else:
-        return GetRequest(key=value.decode("utf-8"))
+        return GetRequest(key=value)
 
 
 class Server:
