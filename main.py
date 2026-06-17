@@ -72,7 +72,6 @@ def handle_request(
     request: SetRequest | GetRequest,
     store: Store,
 ) -> Response:
-    assert isinstance(request, (SetRequest, GetRequest))
     if isinstance(request, GetRequest):
         value = store.get(request.key)
         response = make_response(404, "Not Found") if value is None else make_response(200, "OK", body=value)
