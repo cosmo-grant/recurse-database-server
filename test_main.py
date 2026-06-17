@@ -71,8 +71,16 @@ def test_parse_set_request():
     assert parse(b"POST /set?somekey=somevalue HTTP/1.1\r\n\r\n") == SetRequest("somekey", "somevalue")
 
 
+def test_parse_set_request_with_url_encoding():
+    assert parse(b"POST /set?some+key=some%3Avalue HTTP/1.1\r\n\r\n") == SetRequest("some key", "some:value")
+
+
 def test_parse_get_request():
     assert parse(b"GET /get?key=somekey HTTP/1.1\r\n\r\n") == GetRequest("somekey")
+
+
+def test_parse_get_request_with_url_encoding():
+    assert parse(b"GET /get?key=some%20key HTTP/1.1\r\n\r\n") == GetRequest("some key")
 
 
 def test_handle_set_request():

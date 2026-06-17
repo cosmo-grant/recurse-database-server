@@ -1,6 +1,7 @@
 import socket
 from dataclasses import dataclass
 from threading import Event
+from urllib.parse import parse_qs
 
 
 class Store:
@@ -88,7 +89,7 @@ def parse(raw: bytes) -> SetRequest | GetRequest:
     request_line = decoded.split("\r\n")[0]
     _, uri, _ = request_line.split()
     path, _, query = uri.partition("?")
-    key, _, value = query.partition("=")  # TODO: cope with url encoding
+    key, [value] = parse_qs(query).popitem()  # deals with url encoding
     if path == "/set":
         return SetRequest(key=key, value=value)
     else:
