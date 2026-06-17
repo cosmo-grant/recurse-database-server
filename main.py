@@ -97,44 +97,61 @@ def parse(raw: bytes) -> SetRequest | GetRequest:
 
 class Server:
     def __init__(self, host: str, port: int):
-        self._sock = socket.create_server((host, port))
-        self._sock.settimeout(0.1)
-        self._event = Event()
+        self.host = host
+        self._port = port  # can be 0
+        self._port_updated = Event()
+        self._stop_requested = Event()
         self._store = Store()
 
     def start(self):
-        # The event checking and accept timeout is to allow tests to exit the loop.
-        # A bit wasteful though.
-        while not self._event.is_set():
-            try:
-                conn, _ = self._sock.accept()
-            except TimeoutError:
-                pass
-            else:
-                raw = b""
-                while data := conn.recv(128):
-                    raw += data
-                    # I take end of headers as end of message, ignoring anything that comes later.
-                    if b"\r\n\r\n" in raw:
-                        break
+        with socket.socket() as sock:
+            sock.settimeout(0.1)
+            sock.bind((self.host, self._port))
+            self._port = sock.getsockname()[1]  # in case using a kernel-assigned port
+            self._port_updated.set()
+            sock.listen()
 
-                request = parse(raw)
-                response = handle_request(request, self._store)
-                conn.sendall(response.serialize())
+            # The event checking and accept timeout is to allow tests to exit the loop.
+            # A bit wasteful though.
+            while not self._stop_requested.is_set():
+                try:
+                    conn, _ = sock.accept()
+                except TimeoutError:
+                    pass
+                else:
+                    raw = b""
+                    while data := conn.recv(128):
+                        raw += data
+                        # I take end of headers as end of message, ignoring anything that comes later.
+                        if b"\r\n\r\n" in raw:
+                            break
 
-        # Should I shutdown first? I'm not sure of best practice.
-        self._sock.close()
+                    request = parse(raw)
+                    response = handle_request(request, self._store)
+                    conn.sendall(response.serialize())
 
     def stop(self):
-        self._event.set()
-
-    def get_port(self) -> int:
         """
-        Return the port that the server's underlying socket is listening on.
+        Request that the server stop.
 
-        This is useful if you initialized with port=0, e.g. when testing, to find out which port the kernel picked for you.
+        This flags that the server should break out of its accept-read loop at the next iteration. Call it when
+        you've started the server in another thread, e.g. when testing, and need to stop it. This method is not
+        responsible for cleanly closing the server: it just flags that it should be closed.
         """
-        return self._sock.getsockname()[1]
+        self._stop_requested.set()
+
+    @property
+    def port(self) -> int:
+        """Return the server's port, raising if it's not yet settled."""
+
+        if self._port == 0:
+            # The kernel will assign a port when we start the server. We'll give that a moment, in case it's in progress,
+            # else raise.
+            if not self._port_updated.wait(0.1):  # 0.1 seems enough for tests to run ok
+                raise RuntimeError("No port assigned yet. Have you called start()?")
+            return self._port
+        else:
+            return self._port
 
 
 def main():

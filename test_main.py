@@ -1,7 +1,7 @@
 from threading import Thread
 
 import requests
-from pytest import fixture
+from pytest import fixture, raises
 
 from main import GetRequest, Response, Server, SetRequest, Store, handle_request, make_response, parse
 
@@ -14,6 +14,12 @@ def server():
     yield server
     server.stop()
     thread.join()
+
+
+def test_server_raises_if_you_look_up_port_without_starting_server():
+    server = Server("localhost", 0)
+    with raises(RuntimeError):
+        _ = server.port
 
 
 def test_make_response():
@@ -87,18 +93,16 @@ def test_handle_get_request_not_found():
 
 
 def test_e2e_get_then_set(server):
-    port = server.get_port()
-    post_response = requests.post(f"http://localhost:{port}/set", params={"somekey": "somevalue"})
+    post_response = requests.post(f"http://localhost:{server.port}/set", params={"somekey": "somevalue"})
     assert post_response.status_code == 201
-    get_response = requests.get(f"http://localhost:{port}/get", params={"key": "somekey"})
+    get_response = requests.get(f"http://localhost:{server.port}/get", params={"key": "somekey"})
     assert get_response.status_code == 200
     assert get_response.text == "somevalue"
 
 
 def test_body_is_ignored(server):
-    port = server.get_port()
     response = requests.post(
-        f"http://localhost:{port}/set",
+        f"http://localhost:{server.port}/set",
         data="somebody",
         params={"key": "somekey", "value": "somevalue"},
     )
