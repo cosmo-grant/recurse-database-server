@@ -108,10 +108,10 @@ def test_e2e_get_then_set(server):
     assert get_response.text == "somevalue"
 
 
-def test_body_is_ignored(server):
+def test_extra_parameters_and_body_are_ignored(server):
     response = requests.post(
         f"http://localhost:{server.port}/set",
         data="somebody",
-        params={"key": "somekey", "value": "somevalue"},
+        params={"somekey": "somevalue", "extrakey": "extravalue"},
     )
     assert response.status_code == 201
