@@ -119,16 +119,17 @@ class Server:
                 except TimeoutError:
                     pass
                 else:
-                    raw = b""
-                    while data := conn.recv(128):
-                        raw += data
-                        # I take end of headers as end of message, ignoring anything that comes later.
-                        if b"\r\n\r\n" in raw:
-                            break
+                    with conn:
+                        raw = b""
+                        while data := conn.recv(128):
+                            raw += data
+                            # I take end of headers as end of message, ignoring anything that comes later.
+                            if b"\r\n\r\n" in raw:
+                                break
 
-                    request = parse(raw)
-                    response = handle_request(request, self._store)
-                    conn.sendall(response.serialize())
+                        request = parse(raw)
+                        response = handle_request(request, self._store)
+                        conn.sendall(response.serialize())
 
     def stop(self):
         """
