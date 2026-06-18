@@ -1,23 +1,30 @@
+from contextlib import contextmanager
+from pathlib import Path
 from threading import Thread
+from time import sleep
 
 import requests
-from pytest import fixture, raises
+from pytest import raises
 
 from main import GetRequest, Response, Server, SetRequest, Store, handle_request, make_response, parse
 
 
-@fixture
-def server():
-    server = Server("localhost", 0)
+@contextmanager
+def server_in_thread(host, port, filename):
+    server = Server(host, port, filename)
     thread = Thread(target=server.start)
-    thread.start()
-    yield server
-    server.stop()
-    thread.join()
+    try:
+        thread.start()
+        while not server.is_listening():
+            sleep(0.1)
+        yield server
+    finally:
+        server.stop()
+        thread.join()
 
 
 def test_server_raises_if_you_look_up_port_without_starting_server():
-    server = Server("localhost", 0)
+    server = Server("localhost", 0, Path("some_file.json"))
     with raises(RuntimeError):
         _ = server.port
 
@@ -100,18 +107,31 @@ def test_handle_get_request_not_found():
     assert response == make_response(404, "Not Found")
 
 
-    post_response = requests.post(f"http://localhost:{server.port}/set", params={"somekey": "somevalue"})
 def test_e2e_set_then_get(tmp_path):
+    with server_in_thread("localhost", 0, tmp_path / "store.json") as server:
+        post_response = requests.post(f"http://localhost:{server.port}/set", params={"somekey": "somevalue"})
+        get_response = requests.get(f"http://localhost:{server.port}/get", params={"key": "somekey"})
     assert post_response.status_code == 201
-    get_response = requests.get(f"http://localhost:{server.port}/get", params={"key": "somekey"})
     assert get_response.status_code == 200
     assert get_response.text == "somevalue"
 
 
-def test_extra_parameters_and_body_are_ignored(server):
-    response = requests.post(
-        f"http://localhost:{server.port}/set",
-        data="somebody",
-        params={"somekey": "somevalue", "extrakey": "extravalue"},
-    )
+def test_e2e_set_shutdown_restart_get(tmp_path):
+    with server_in_thread("localhost", 0, tmp_path / "store.json") as server:
+        post_response = requests.post(f"http://localhost:{server.port}/set", params={"somekey": "somevalue"})
+    assert post_response.status_code == 201
+
+    with server_in_thread("localhost", 0, tmp_path / "store.json") as server:
+        get_response = requests.get(f"http://localhost:{server.port}/get", params={"key": "somekey"})
+    assert get_response.status_code == 200
+    assert get_response.text == "somevalue"
+
+
+def test_extra_parameters_and_body_are_ignored(tmp_path):
+    with server_in_thread("localhost", 0, tmp_path / "store.json") as server:
+        response = requests.post(
+            f"http://localhost:{server.port}/set",
+            data="somebody",
+            params={"somekey": "somevalue", "extrakey": "extravalue"},
+        )
     assert response.status_code == 201

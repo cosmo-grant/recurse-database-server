@@ -1,5 +1,7 @@
+import json
 import socket
 from dataclasses import dataclass
+from pathlib import Path
 from threading import Event
 from urllib.parse import parse_qs
 
@@ -19,6 +21,10 @@ class Store:
 
     def set(self, key: str, value: str) -> None:
         self._data[key] = value
+
+    def write(self, filename: Path) -> None:
+        with open(filename, "w") as f:
+            json.dump(self._data, f)
 
 
 @dataclass(frozen=True)
@@ -96,20 +102,27 @@ def parse(raw: bytes) -> SetRequest | GetRequest:
 
 
 class Server:
-    def __init__(self, host: str, port: int):
+    def __init__(self, host: str, port: int, filename: Path):
         self.host = host
         self._port = port  # can be 0
-        self._port_updated = Event()
+        self._is_listening = Event()
         self._stop_requested = Event()
-        self._store = Store()
+        self._filename = filename
+        try:
+            with open(filename) as f:
+                data = json.load(f)
+        except FileNotFoundError:
+            data = {}
+        self._store = Store(data)
 
     def start(self):
         with socket.socket() as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             sock.settimeout(0.1)
             sock.bind((self.host, self._port))
             self._port = sock.getsockname()[1]  # in case using a kernel-assigned port
-            self._port_updated.set()
             sock.listen()
+            self._is_listening.set()
 
             # The event checking and accept timeout is to allow tests to exit the loop.
             # A bit wasteful though.
@@ -140,6 +153,7 @@ class Server:
         responsible for cleanly closing the server: it just flags that it should be closed.
         """
         self._stop_requested.set()
+        self._store.write(self._filename)
 
     @property
     def port(self) -> int:
@@ -148,15 +162,19 @@ class Server:
         if self._port == 0:
             # The kernel will assign a port when we start the server. We'll give that a moment, in case it's in progress,
             # else raise.
-            if not self._port_updated.wait(0.1):  # 0.1 seems enough for tests to run ok
+            if not self._is_listening.wait(0.1):  # 0.1 seems enough for tests to run ok
                 raise RuntimeError("No port assigned yet. Have you called start()?")
             return self._port
         else:
             return self._port
 
+    def is_listening(self) -> bool:
+        """Flag whether the server socket is listening."""
+        return self._is_listening.is_set()
+
 
 def main():
-    server = Server("localhost", 4000)
+    server = Server("localhost", 4000, Path("store.json"))
     try:
         server.start()
     finally:
