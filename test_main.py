@@ -100,8 +100,8 @@ def test_handle_get_request_not_found():
     assert response == make_response(404, "Not Found")
 
 
-def test_e2e_get_then_set(server):
     post_response = requests.post(f"http://localhost:{server.port}/set", params={"somekey": "somevalue"})
+def test_e2e_set_then_get(tmp_path):
     assert post_response.status_code == 201
     get_response = requests.get(f"http://localhost:{server.port}/get", params={"key": "somekey"})
     assert get_response.status_code == 200
